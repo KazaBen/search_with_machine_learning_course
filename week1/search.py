@@ -135,7 +135,8 @@ def create_query(user_query, filters, sort="_score", sortDir="desc"):
                 ]
               }
             }
-          ]
+          ],
+          "filter": filters
         }
       },
       "functions": [
