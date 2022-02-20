@@ -26,6 +26,11 @@
           {% endif %}
         {% endif %}
       </div>
+      {% if hit._source.image != null%}
+        <div><span class="search-result-header">Image</span>:
+          <img src="{{ hit._source.image[0] }}" />
+        </div>
+      {% endif %}
     </div>
   {% endfor %}
 
