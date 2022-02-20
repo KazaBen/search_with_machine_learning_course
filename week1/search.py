@@ -115,10 +115,12 @@ def query():
 def create_query(user_query, filters, sort="_score", sortDir="desc"):
     print("Query: {} Filters: {} Sort: {}".format(user_query, filters, sort))
 
-    query_obj = {
-        "size": 10,
-        "query": {
-    "function_score": {
+    if user_query == "*":
+        query = {
+            "match_all": {}
+        }
+    else:
+        query = { "function_score": {
       "query": {
         "bool": {
           "must": [
@@ -162,7 +164,11 @@ def create_query(user_query, filters, sort="_score", sortDir="desc"):
       "boost_mode": "replace",
       "score_mode": "avg"
     }
-        },
+    }
+
+    query_obj = {
+        "size": 10,
+        "query": query,
         "aggs": {
             "regularPrice": {
                 "range": {
