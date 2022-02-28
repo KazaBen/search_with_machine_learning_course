@@ -7,12 +7,30 @@ def create_rescore_ltr_query(user_query, query_obj, click_prior_query, ltr_model
                              active_features=None, rescore_size=500, main_query_weight=1, rescore_query_weight=2):
     # Create the base query, use a much bigger window
     #add on the rescore
-    print("IMPLEMENT ME: create_rescore_ltr_query")
+    query_obj["rescore"] = {
+        "window_size": rescore_size,
+        "query": {
+            "rescore_query": {
+                "sltr": {
+                    "params": {
+                        "keywords": user_query,
+                        "click_prior_query": click_prior_query
+                    },
+                    "model": ltr_model_name,
+                    # Since we are using a named store, as opposed to simply '_ltr', we need to pass it in
+                    "store": ltr_store_name,
+                    "active_features":  active_features if active_features != None else []
+                }
+            },
+            "query_weight": main_query_weight,
+            "rescore_query_weight": rescore_query_weight # Magic number, but let's say LTR matches are 2x baseline matches
+        }
+    }
     return query_obj
 
 # take an existing query and add in an SLTR so we can use it for explains to see how much SLTR contributes
 def create_sltr_simple_query(user_query, query_obj, click_prior_query, ltr_model_name, ltr_store_name, active_features=None):
-    # Create the base query, use a much bigger window
+    # Create the base query, use a much bigger windowpwd
     #add on the rescore
     sltr = {
         "sltr": {
@@ -50,9 +68,41 @@ def create_sltr_hand_tuned_query(user_query, query_obj, click_prior_query, ltr_m
     return query_obj, len(query_obj["query"]["function_score"]["query"]["bool"]["should"])
 
 def create_feature_log_query(query, doc_ids, click_prior_query, featureset_name, ltr_store_name, size=200, terms_field="_id"):
-    print("IMPLEMENT ME: create_feature_log_query")
-    return None
-
+    query_obj = {
+        "size": size,
+            'query': {
+                'bool': {
+                    "filter": [  # use a filter so that we don't actually score anything
+                        {
+                            "terms": {
+                                terms_field: doc_ids
+                            }
+                        },
+                        {  # use the LTR query bring in the LTR feature set
+                            "sltr": {
+                                "_name": "logged_featureset",
+                                "featureset": featureset_name,
+                  "store": ltr_store_name,
+                                "params": {
+                                    "keywords": query,
+                                    "click_prior_query": click_prior_query,
+                                }
+                            }
+                        }
+                    ]
+                }
+            },
+            # Turn on feature logging so that we get weights back for our features
+            "ext": {
+                "ltr_log": {
+                    "log_specs": {
+                        "name": "log_entry",
+                        "named_query": "logged_featureset"
+                    }
+                }
+            }
+        }
+    return query_obj
 
 # Item is a Pandas namedtuple
 def get_features(item, exclusions, col_names):
