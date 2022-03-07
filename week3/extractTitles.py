@@ -3,6 +3,8 @@ import random
 import xml.etree.ElementTree as ET
 import argparse
 from pathlib import Path
+import nltk
+from nltk.tokenize import word_tokenize
 
 directory = r'/workspace/search_with_machine_learning_course/data/pruned_products'
 parser = argparse.ArgumentParser(description='Process some integers.')
@@ -25,9 +27,13 @@ if args.input:
 
 sample_rate = args.sample_rate
 
+stemmer = nltk.stem.SnowballStemmer("english")
+nltk.download('punkt')
+
 def transform_training_data(name):
-    # IMPLEMENT
-    return name.replace('\n', ' ')
+    tokens = word_tokenize(name)
+    tokens = [stemmer.stem(word) for word in tokens]
+    return " ".join(tokens)
 
 # Directory for product data
 
@@ -44,3 +50,14 @@ with open(output_file, 'w') as output:
                 if (child.find('name') is not None and child.find('name').text is not None):
                     name = transform_training_data(child.find('name').text)
                     output.write(name + "\n")
+
+print("Filtering results to %s" % output_file)
+NUM2KEEP = [10, 20, 50]
+for num in NUM2KEEP:
+    output_df = pd.read_csv(output_file)
+    output_df[['y', 'x']] = output_df.iloc[:, 0].str.split(" ", n=1, expand=True)
+    output_counts = output_df.groupby(by='y').agg("count")['x']
+    labels2keep = output_counts[output_counts > num].index.values
+    output_df = output_df[output_df['y'].isin(labels2keep)]
+    output = output_df["y"] + " " + output_df["x"]
+    output.to_csv(os.path.split(output_file)[0]+os.path.sep+"titles_minCut{}.txt".format(num), header=None, index=False) 

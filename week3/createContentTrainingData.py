@@ -3,10 +3,17 @@ import os
 import random
 import xml.etree.ElementTree as ET
 from pathlib import Path
+import nltk
+from nltk.tokenize import word_tokenize
+import pandas as pd
+
+stemmer = nltk.stem.SnowballStemmer("english")
+nltk.download('punkt')
 
 def transform_name(product_name):
-    # IMPLEMENT
-    return product_name
+    tokens = word_tokenize(product_name)
+    tokens = [stemmer.stem(word) for word in tokens]
+    return " ".join(tokens)
 
 # Directory for product data
 directory = r'/workspace/search_with_machine_learning_course/data/pruned_products/'
@@ -56,3 +63,12 @@ with open(output_file, 'w') as output:
                       name = child.find('name').text.replace('\n', ' ')
                       output.write("__label__%s %s\n" % (cat, transform_name(name)))
 
+NUM2KEEP = [50, 100, 200]
+for num in NUM2KEEP:
+    output_df = pd.read_csv(output_file)
+    output_df[['y', 'x']] = output_df.iloc[:, 0].str.split(" ", n=1, expand=True)
+    output_counts = output_df.groupby(by='y').agg("count")['x']
+    labels2keep = output_counts[output_counts > num].index.values
+    output_df = output_df[output_df['y'].isin(labels2keep)]
+    output = output_df["y"] + " " + output_df["x"]
+    output.to_csv("output_filtered{}.fasttext".format(num), index=False)
