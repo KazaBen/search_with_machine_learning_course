@@ -7,7 +7,22 @@ import csv
 
 # Useful if you want to perform stemming.
 import nltk
+from nltk.stem import SnowballStemmer
+from nltk.corpus import stopwords
+from nltk import sent_tokenize, word_tokenize
+
 stemmer = nltk.stem.PorterStemmer()
+
+def transform_query(query):
+    tokens = word_tokenize(query)
+    tokens = [word for word in tokens if (word.isalpha()) & (word not in stopwords.words('english'))]
+    tokens = [word.lower() for word in tokens]
+    tokens = [stemmer.stem(word) for word in tokens]
+
+    if len(tokens) == 0:
+        return np.nan
+    else:
+        return " ".join(tokens)
 
 categories_file_name = r'/workspace/datasets/product_data/categories/categories_0001_abcat0010000_to_pcmcat99300050000.xml'
 
@@ -43,14 +58,41 @@ for child in root:
         categories.append(leaf_id)
         parents.append(cat_path_ids[-2])
 parents_df = pd.DataFrame(list(zip(categories, parents)), columns =['category', 'parent'])
+print(parents_df.head())
 
 # Read the training data into pandas, only keeping queries with non-root categories in our category tree.
 df = pd.read_csv(queries_file_name)[['category', 'query']]
 df = df[df['category'].isin(categories)]
+# make a subset of data
+df = df.iloc[:100_000]
 
 # IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
+print(df.head())
+df['query']=df['query'].apply(transform_query)
+print("Shape1:", df.shape)
+print(df.head())
+
+df = df.dropna()
+print("Shape2:", df.shape)
+print(df.head())
+
 
 # IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
+# count number of categories
+df["nb_queries"] = df.groupby('category')['query'].transform(len)
+
+def get_parent(candidate:str):
+    return parents_df[parents_df['category']  == candidate]['parent'].values[0]
+
+# get parent for each cateogory
+df['parent'] = df['category'].apply(get_parent) 
+
+# create boolean mask
+MIN_CUT = 1000
+df.loc[df['nb_queries'] < MIN_CUT, 'to_swap'] = 1
+# apply boolean mask
+df[['category']] = df[['parent']].mask(df['to_swap']==1, df[['parent']].values)
+print(df.head(20))
 
 # Create labels in fastText format.
 df['label'] = '__label__' + df['category']
